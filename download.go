@@ -28,6 +28,10 @@ var downloadmd = cli.Command{
 	Description: "Download from cruster manually",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
+			Name:  "uid",
+			Usage: "Specify user identity",
+		},
+		&cli.StringFlag{
 			Name:  "miner",
 			Usage: "Specify miner address",
 		},
@@ -64,6 +68,16 @@ var downloadmd = cli.Command{
 			return xerrors.Errorf("sector infos config file must provide")
 		}
 
+		uid := cctx.String("uid")
+		if uid == "" {
+			return xerrors.Errorf("storage user identity must provide")
+		}
+
+		minerAddr := cctx.String("miner")
+		if uid == "" {
+			return xerrors.Errorf("miner address must provide")
+		}
+
 		cfgFilepath, _ := homedir.Expand(cfgpath)
 		sFilePath, _ := homedir.Expand(sectorpath)
 
@@ -94,7 +108,7 @@ var downloadmd = cli.Command{
 			return xerrors.New("sector numbers must not be empty")
 		}
 
-		log.Infof("Need to download sectors: %d", len(sectornumbers))
+		log.Infof("Need to download sectors: %d %v", len(sectornumbers), sectornumbers)
 
 		ssize := cctx.String("sector-size")
 
@@ -115,7 +129,7 @@ var downloadmd = cli.Command{
 					<-sem
 				}()
 
-				task := assembleDownloadTask(cctx.String("miner"), bucketinfo, snum, ssize)
+				task := assembleDownloadTask(minerAddr, uid, bucketinfo, snum, ssize)
 				// sectorinfos = append(sectorinfos, ret)
 
 				//pick target host
@@ -127,21 +141,28 @@ var downloadmd = cli.Command{
 
 				// log.Infof("pauxUrl: %s\n sealedUrl: %s\n cacheUrl: %v", pauxUrl, sealedUrl, cacheUrl)
 
-				sectorDir := path.Join(RepoDir, "sectors", snum)
-				err := mkSectorsDir(sectorDir)
+				repo, err := homedir.Expand(RepoDir)
 				if err != nil {
 					return err
 				}
+
+				sectorDir := path.Join(repo, "sectors", snum)
+				err = mkSectorsDir(sectorDir)
+				if err != nil {
+					return err
+				}
+
+				log.Infof("sectorDir: %s p_aux: %s", sectorDir, path.Join(sectorDir, "p_aux"))
 
 				download(pauxUrl, path.Join(sectorDir, "p_aux"))
 
 				for _, cachefile := range task.Cache {
 					splitArr := strings.Split(cachefile, "/")
 					length := len(strings.Split(cachefile, "/"))
-					download(fmt.Sprintf("%s/%s", downloadHost, cachefile), splitArr[length-1])
+					download(fmt.Sprintf("%s/%s", downloadHost, cachefile), path.Join(sectorDir, splitArr[length-1]))
 				}
 
-				download(sealedUrl, "sealed")
+				download(sealedUrl, path.Join(sectorDir, "sealed"))
 
 				return nil
 			}(snum)

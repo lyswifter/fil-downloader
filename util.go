@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 )
 
 func readline(path string) []string {
@@ -25,6 +26,8 @@ func readline(path string) []string {
 			break
 		}
 
+		line = strings.Replace(line, "\n", "", -1)
+
 		ret = append(ret, line)
 	}
 
@@ -32,11 +35,11 @@ func readline(path string) []string {
 }
 
 // assembleDownloadUrl assembleDownloadUrl
-func assembleDownloadTask(miner string, bucket BucketInfo, sectornumber string, ssize string) SectorInfo {
+func assembleDownloadTask(miner string, uid string, bucket BucketInfo, sectornumber string, ssize string) SectorInfo {
 
 	//p_aux sealed
-	paux := fmt.Sprintf("getfile/%d/f0%s//cache/s-t0%s-%s/p_aux", bucket.Part, miner, miner, sectornumber)
-	sealed := fmt.Sprintf("getfile/%d/f0%s//sealed/s-t0%s-%s", bucket.Part, miner, miner, sectornumber)
+	paux := fmt.Sprintf("getfile/%s/f0%s//cache/s-t0%s-%s/p_aux", uid, miner, miner, sectornumber)
+	sealed := fmt.Sprintf("getfile/%s/f0%s//sealed/s-t0%s-%s", uid, miner, miner, sectornumber)
 
 	var cachepaths []string = []string{}
 	if ssize == "32GiB" {
@@ -70,8 +73,9 @@ func (r *Reader) Read(p []byte) (n int, err error) {
 	n, err = r.Reader.Read(p)
 
 	r.Current += int64(n)
-	fmt.Printf("\rDownload %.2f%%", float64(r.Current*10000/r.Total)/100)
+	precent := float64(r.Current*10000/r.Total) / 100
 
+	log.Infof("\rDownload %.2f%%", precent)
 	return
 }
 

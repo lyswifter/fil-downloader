@@ -34,6 +34,8 @@ toCheck = []string{
     filepath.Join(cachePath, "sc-02-data-tree-r-last-7.dat"),
 }
 
+//http://10.10.24.104:5000/getfile/16/f0111007//cache/s-t0111007-101397/p_aux
+
 //http://10.10.36.69:5000/getfile/12/f0111007//cache/s-t0111007-85654/p_aux
 //http://10.10.36.76:5000/getfile/12/f0111007//cache/s-t0111007-2638/sc-02-data-tree-r-last-3.dat
 //http://10.10.24.95:5000/getfile/12/f0111007//sealed/s-t0111007-2640
