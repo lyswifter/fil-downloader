@@ -2,11 +2,13 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"strings"
+	"time"
 )
 
 func readline(path string) []string {
@@ -71,11 +73,7 @@ type Reader struct {
 
 func (r *Reader) Read(p []byte) (n int, err error) {
 	n, err = r.Reader.Read(p)
-
 	r.Current += int64(n)
-	precent := float64(r.Current*10000/r.Total) / 100
-
-	log.Infof("\rDownload %.2f%%", precent)
 	return
 }
 
@@ -98,6 +96,26 @@ func download(url string, filename string) error {
 		Reader: r.Body,
 		Total:  r.ContentLength,
 	}
+
+	go func() {
+		ctx := context.Background()
+		ticker := time.NewTicker(30 * time.Second)
+
+		for {
+			select {
+			case <-ticker.C:
+				precent := float64(reader.Current*10000/reader.Total) / 100
+				log.Infof("\rDownload %s %.2f%%", url, precent)
+
+				if reader.Current == reader.Total {
+					log.Infof("finished download cur: %d total: %d", reader.Current, reader.Total)
+					return
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
 
 	_, _ = io.Copy(f, reader)
 
