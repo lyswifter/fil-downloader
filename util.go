@@ -46,12 +46,12 @@ func assembleDownloadTask(miner string, uid string, bucket BucketInfo, sectornum
 	var cachepaths []string = []string{}
 	if ssize == "32GiB" {
 		for i := 0; i < 8; i++ {
-			cache := fmt.Sprintf("getfile/%d/f0%s//cache/s-t0%s-%s/sc-02-data-tree-r-last-%d.dat", bucket.Part, miner, miner, sectornumber, i)
+			cache := fmt.Sprintf("getfile/%s/f0%s//cache/s-t0%s-%s/sc-02-data-tree-r-last-%d.dat", uid, miner, miner, sectornumber, i)
 			cachepaths = append(cachepaths, cache)
 		}
 	} else {
 		for i := 0; i < 16; i++ {
-			cache := fmt.Sprintf("getfile/%d/f0%s//cache/s-t0%s-%s/sc-02-data-tree-r-last-%d.dat", bucket.Part, miner, miner, sectornumber, i)
+			cache := fmt.Sprintf("getfile/%s/f0%s//cache/s-t0%s-%s/sc-02-data-tree-r-last-%d.dat", uid, miner, miner, sectornumber, i)
 			cachepaths = append(cachepaths, cache)
 		}
 	}

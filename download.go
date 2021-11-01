@@ -130,7 +130,6 @@ var downloadmd = cli.Command{
 				}()
 
 				task := assembleDownloadTask(minerAddr, uid, bucketinfo, snum, ssize)
-				// sectorinfos = append(sectorinfos, ret)
 
 				//pick target host
 				rsHost := bucketinfo.Rs_hosts[random.Intn(len(bucketinfo.Rs_hosts))]
@@ -138,8 +137,6 @@ var downloadmd = cli.Command{
 
 				pauxUrl := fmt.Sprintf("%s/%s", downloadHost, task.Paux)
 				sealedUrl := fmt.Sprintf("%s/%s", downloadHost, task.Sealed)
-
-				// log.Infof("pauxUrl: %s\n sealedUrl: %s\n cacheUrl: %v", pauxUrl, sealedUrl, cacheUrl)
 
 				repo, err := homedir.Expand(RepoDir)
 				if err != nil {
@@ -154,15 +151,24 @@ var downloadmd = cli.Command{
 
 				log.Infof("sectorDir: %s p_aux: %s", sectorDir, path.Join(sectorDir, "p_aux"))
 
-				download(pauxUrl, path.Join(sectorDir, "p_aux"))
+				err = download(pauxUrl, path.Join(sectorDir, "p_aux"))
+				if err != nil {
+					return err
+				}
 
 				for _, cachefile := range task.Cache {
 					splitArr := strings.Split(cachefile, "/")
 					length := len(strings.Split(cachefile, "/"))
-					download(fmt.Sprintf("%s/%s", downloadHost, cachefile), path.Join(sectorDir, splitArr[length-1]))
+					err = download(fmt.Sprintf("%s/%s", downloadHost, cachefile), path.Join(sectorDir, splitArr[length-1]))
+					if err != nil {
+						return err
+					}
 				}
 
-				download(sealedUrl, path.Join(sectorDir, "sealed"))
+				err = download(sealedUrl, path.Join(sectorDir, "sealed"))
+				if err != nil {
+					return err
+				}
 
 				return nil
 			}(snum)
