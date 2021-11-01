@@ -9,7 +9,11 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"golang.org/x/xerrors"
 )
+
+var AlreadyErr = xerrors.New("Already Downloaded")
 
 func readline(path string) []string {
 	f, err := os.Open(path)
@@ -80,6 +84,18 @@ func (r *Reader) Read(p []byte) (n int, err error) {
 func download(url string, filename string) error {
 	log.Infof("Start download: %s", url)
 
+	ctx := context.Background()
+
+	isalready, err := QueryStatus(ctx, url)
+	if err != nil {
+		return err
+	}
+
+	if isalready {
+		log.Warnf("File %s is already downloaded", url)
+		return AlreadyErr
+	}
+
 	r, err := http.Get(url)
 	if err != nil {
 		panic(err)
@@ -97,8 +113,7 @@ func download(url string, filename string) error {
 		Total:  r.ContentLength,
 	}
 
-	go func() {
-		ctx := context.Background()
+	go func(ctx context.Context) {
 		ticker := time.NewTicker(30 * time.Second)
 
 		for {
@@ -108,14 +123,19 @@ func download(url string, filename string) error {
 				log.Infof("Download %s %.2f%%", url, precent)
 
 				if reader.Current == reader.Total {
-					log.Infof("Finished download cur: %d total: %d", url, reader.Current, reader.Total)
+					log.Infof("Finished download %s total: %d total: %d cur: %d", url, reader.Total, reader.Current)
+					err = MarkAsDownloaded(ctx, url)
+					if err != nil {
+						log.Errorf("mark as download err %s", err.Error())
+						return
+					}
 					return
 				}
 			case <-ctx.Done():
 				return
 			}
 		}
-	}()
+	}(ctx)
 
 	_, _ = io.Copy(f, reader)
 

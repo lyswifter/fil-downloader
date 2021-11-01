@@ -20,8 +20,7 @@ var random = rand.New(rand.NewSource(time.Now().UnixNano() | int64(os.Getpid()))
 
 var MAXCHECKING = 8
 
-var downloadChan chan uint64 = make(chan uint64)
-var sem = make(chan struct{}, MAXCHECKING)
+var sem chan struct{}
 
 var downloadmd = cli.Command{
 	Name:        "download",
@@ -58,6 +57,13 @@ var downloadmd = cli.Command{
 	},
 	Action: func(cctx *cli.Context) error {
 
+		maxqueue := cctx.Int64("max-queue")
+		if maxqueue <= 0 {
+			return xerrors.Errorf("max queue must greater than zero")
+		}
+
+		sem = make(chan struct{}, maxqueue)
+
 		cfgpath := cctx.String("config-path")
 		if cfgpath == "" {
 			return xerrors.Errorf("ruster config file must provide")
@@ -81,7 +87,6 @@ var downloadmd = cli.Command{
 		cfgFilepath, _ := homedir.Expand(cfgpath)
 		sFilePath, _ := homedir.Expand(sectorpath)
 
-		//read cruster config info
 		file, err := os.Open(cfgFilepath)
 		if err != nil {
 			return err
@@ -102,7 +107,6 @@ var downloadmd = cli.Command{
 
 		log.Infof("Bucket info: %+v", bucketinfo)
 
-		//read sectors info
 		sectornumbers := readline(sFilePath)
 		if len(sectornumbers) == 0 {
 			return xerrors.New("sector numbers must not be empty")
@@ -149,11 +153,11 @@ var downloadmd = cli.Command{
 					return err
 				}
 
-				log.Infof("sectorDir: %s p_aux: %s", sectorDir, path.Join(sectorDir, "p_aux"))
-
 				err = download(pauxUrl, path.Join(sectorDir, "p_aux"))
 				if err != nil {
-					return err
+					if err != AlreadyErr {
+						return err
+					}
 				}
 
 				for _, cachefile := range task.Cache {
@@ -161,13 +165,17 @@ var downloadmd = cli.Command{
 					length := len(strings.Split(cachefile, "/"))
 					err = download(fmt.Sprintf("%s/%s", downloadHost, cachefile), path.Join(sectorDir, splitArr[length-1]))
 					if err != nil {
-						return err
+						if err != AlreadyErr {
+							return err
+						}
 					}
 				}
 
 				err = download(sealedUrl, path.Join(sectorDir, "sealed"))
 				if err != nil {
-					return err
+					if err != AlreadyErr {
+						return err
+					}
 				}
 
 				return nil

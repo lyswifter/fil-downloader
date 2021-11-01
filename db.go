@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"os"
 	"path"
 
@@ -63,10 +64,46 @@ func DataStores() error {
 	InfoDB = ldb
 	log.Infof("InfoDB: %+v", InfoDB)
 
-	// err = mkSectorsDir(path.Join(repodir, "sectors"))
-	// if err != nil {
-	// 	return err
-	// }
+	return nil
+}
+
+func MarkAsDownloaded(ctx context.Context, file string) error {
+	key := datastore.NewKey(file)
+	ishas, err := InfoDB.Has(ctx, key)
+	if err != nil {
+		return err
+	}
+
+	if !ishas {
+		err := InfoDB.Put(ctx, key, []byte("already"))
+		if err != nil {
+			return err
+		}
+		return nil
+	}
 
 	return nil
+}
+
+func QueryStatus(ctx context.Context, file string) (bool, error) {
+	key := datastore.NewKey(file)
+	ishas, err := InfoDB.Has(ctx, key)
+	if err != nil {
+		return false, err
+	}
+
+	if ishas {
+		ret, err := InfoDB.Get(ctx, key)
+		if err != nil {
+			return false, err
+		}
+
+		if string(ret) == "already" {
+			return true, nil
+		} else {
+			return false, nil
+		}
+	}
+
+	return false, nil
 }
