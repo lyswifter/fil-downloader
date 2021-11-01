@@ -11,10 +11,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ipfs/go-datastore"
 	"github.com/mitchellh/go-homedir"
 	"github.com/urfave/cli"
 	"golang.org/x/xerrors"
 )
+
+var InfoDB datastore.Batching
 
 var random = rand.New(rand.NewSource(time.Now().UnixNano() | int64(os.Getpid())))
 
@@ -56,6 +59,11 @@ var downloadmd = cli.Command{
 		},
 	},
 	Action: func(cctx *cli.Context) error {
+
+		err := DataStores()
+		if err != nil {
+			return err
+		}
 
 		maxqueue := cctx.Int64("max-queue")
 		if maxqueue <= 0 {
