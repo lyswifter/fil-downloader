@@ -15,10 +15,17 @@ var daemonCmd = cli.Command{
 	Description: "Start download daemon",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
-			Name: "file",
+			Name: "path",
 		},
 	},
 	Action: func(cctx *cli.Context) error {
+
+		// RepoDir
+
+		err := DataStores()
+		if err != nil {
+			return err
+		}
 
 		ticker := time.NewTicker(30 * time.Second)
 		ctx := context.Background()

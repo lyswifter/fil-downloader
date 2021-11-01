@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 
+	"github.com/ipfs/go-datastore"
 	logging "github.com/ipfs/go-log/v2"
 	"github.com/urfave/cli"
 )
@@ -10,6 +11,8 @@ import (
 var log = logging.Logger("fil-downloader")
 
 var RepoDir = "~/.fil-downloader"
+
+var InfoDB datastore.Batching
 
 func main() {
 	logging.SetLogLevel("*", "INFO")
