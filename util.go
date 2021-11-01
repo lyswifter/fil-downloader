@@ -105,10 +105,10 @@ func download(url string, filename string) error {
 			select {
 			case <-ticker.C:
 				precent := float64(reader.Current*10000/reader.Total) / 100
-				log.Infof("\rDownload %s %.2f%%", url, precent)
+				log.Infof("Download %s %.2f%%", url, precent)
 
 				if reader.Current == reader.Total {
-					log.Infof("finished download cur: %d total: %d", reader.Current, reader.Total)
+					log.Infof("Finished download cur: %d total: %d", url, reader.Current, reader.Total)
 					return
 				}
 			case <-ctx.Done():

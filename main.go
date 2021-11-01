@@ -7,7 +7,7 @@ import (
 	"github.com/urfave/cli"
 )
 
-var log = logging.Logger("lotus-seed")
+var log = logging.Logger("fil-downloader")
 
 var RepoDir = "~/.fil-downloader"
 
