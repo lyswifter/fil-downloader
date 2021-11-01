@@ -123,7 +123,7 @@ func download(url string, filename string) error {
 				log.Infof("Download %s %.2f%%", url, precent)
 
 				if reader.Current == reader.Total {
-					log.Infof("Finished download %s total: %d total: %d cur: %d", url, reader.Total, reader.Current)
+					log.Infof("Finished download %s total: %d cur: %d", url, reader.Total, reader.Current)
 					err = MarkAsDownloaded(ctx, url)
 					if err != nil {
 						log.Errorf("mark as download err %s", err.Error())
