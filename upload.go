@@ -1,28 +1,30 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
 	"os"
 	"path"
-	"strings"
 	"sync"
 	"time"
 
 	"github.com/mitchellh/go-homedir"
 	"github.com/urfave/cli"
 	"golang.org/x/xerrors"
+
+	"github.com/qiniupd/qiniu-go-sdk/syncdata/operation"
 )
 
-var random = rand.New(rand.NewSource(time.Now().UnixNano() | int64(os.Getpid())))
-var MAXCHECKING = 8
-var sem chan struct{}
+var randomn = rand.New(rand.NewSource(time.Now().UnixNano() | int64(os.Getpid())))
+var MAXQUEST = 8
+var semu chan struct{}
 
-var downloadmd = cli.Command{
-	Name:        "download",
-	Description: "Download from cruster manually",
+var uploader operation.Uploader
+
+var uploadCmd = cli.Command{
+	Name:        "upload",
+	Description: "Upload to cruster manually",
 	Flags: []cli.Flag{
 		&cli.StringFlag{
 			Name:  "uid",
@@ -35,7 +37,7 @@ var downloadmd = cli.Command{
 		&cli.StringFlag{
 			Name:  "config-path",
 			Usage: "Giving cruster config information path: s.json",
-			Value: path.Join(RepoDir, "s.json"),
+			Value: path.Join(RepoDir, "u.toml"),
 		},
 		&cli.StringFlag{
 			Name:  "sector-path",
@@ -60,7 +62,7 @@ var downloadmd = cli.Command{
 			return xerrors.Errorf("max queue must greater than zero")
 		}
 
-		sem = make(chan struct{}, maxqueue)
+		semu = make(chan struct{}, maxqueue)
 
 		cfgpath := cctx.String("config-path")
 		if cfgpath == "" {
@@ -83,28 +85,14 @@ var downloadmd = cli.Command{
 		}
 
 		cfgFilepath, _ := homedir.Expand(cfgpath)
+		x, err := operation.Load(cfgFilepath)
+		if err != nil {
+			return err
+		}
+
+		uploader = *operation.NewUploader(x)
+
 		sFilePath, _ := homedir.Expand(sectorpath)
-
-		file, err := os.Open(cfgFilepath)
-		if err != nil {
-			return err
-		}
-
-		defer file.Close()
-
-		val, err := ioutil.ReadAll(file)
-		if err != nil {
-			return err
-		}
-
-		var bucketinfo BucketInfo
-		err = json.Unmarshal(val, &bucketinfo)
-		if err != nil {
-			return err
-		}
-
-		log.Infof("Bucket info: %+v", bucketinfo)
-
 		sectornumbers := readline(sFilePath)
 		if len(sectornumbers) == 0 {
 			return xerrors.New("sector numbers must not be empty")
@@ -112,15 +100,18 @@ var downloadmd = cli.Command{
 
 		log.Infof("Need to download sectors: %d %v", len(sectornumbers), sectornumbers)
 
-		ssize := cctx.String("sector-size")
-
 		var wg sync.WaitGroup
+
+		repo, err := homedir.Expand(RepoDir)
+		if err != nil {
+			return err
+		}
 
 		// var sectorinfos []SectorInfo
 		for _, snum := range sectornumbers {
-			// if already download, continue
+			// if already uploaded, continue
 
-			sem <- struct{}{}
+			semu <- struct{}{}
 
 			wg.Add(1)
 
@@ -128,22 +119,8 @@ var downloadmd = cli.Command{
 
 				defer wg.Done()
 				defer func() {
-					<-sem
+					<-semu
 				}()
-
-				task := assembleDownloadTask(minerAddr, uid, bucketinfo, snum, ssize)
-
-				//pick target host
-				rsHost := bucketinfo.Rs_hosts[random.Intn(len(bucketinfo.Rs_hosts))]
-				downloadHost := strings.Replace(rsHost, "9433", "5000", 1)
-
-				pauxUrl := fmt.Sprintf("%s/%s", downloadHost, task.Paux)
-				sealedUrl := fmt.Sprintf("%s/%s", downloadHost, task.Sealed)
-
-				repo, err := homedir.Expand(RepoDir)
-				if err != nil {
-					return err
-				}
 
 				sectorDir := path.Join(repo, "sectors", snum)
 				err = mkSectorsDir(sectorDir)
@@ -151,29 +128,36 @@ var downloadmd = cli.Command{
 					return err
 				}
 
-				err = download(pauxUrl, path.Join(sectorDir, "p_aux"))
+				fs, err := ioutil.ReadDir(sectorDir)
 				if err != nil {
-					if err != AlreadyErr {
-						return err
-					}
+					return err
 				}
 
-				for _, cachefile := range task.Cache {
-					splitArr := strings.Split(cachefile, "/")
-					length := len(strings.Split(cachefile, "/"))
-					err = download(fmt.Sprintf("%s/%s", downloadHost, cachefile), path.Join(sectorDir, splitArr[length-1]))
+				for _, f := range fs {
+					fn := f.Name()
+
+					keyName := ""
+					if fn == "sealed" {
+						keyName = fmt.Sprintf("/sealed/s-t0%s-%s", minerAddr, snum)
+					} else {
+						keyName = fmt.Sprintf("/cache/s-t0%s-%s/%s", minerAddr, snum, fn)
+					}
+
+					if keyName == "" {
+						return xerrors.New("key name must not be empty")
+					}
+
+					filename := path.Join(sectorDir, fn)
+
+					log.Infof("upload start: %s", filename)
+					start := time.Now()
+
+					err = uploader.Upload(filename, keyName)
 					if err != nil {
-						if err != AlreadyErr {
-							return err
-						}
-					}
-				}
-
-				err = download(sealedUrl, path.Join(sectorDir, "sealed"))
-				if err != nil {
-					if err != AlreadyErr {
 						return err
 					}
+
+					log.Infof("upload finished: %s took: %s", filename, time.Since(start).String())
 				}
 
 				return nil

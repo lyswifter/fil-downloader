@@ -11,6 +11,15 @@ import (
 	ldbopts "github.com/syndtr/goleveldb/leveldb/opt"
 )
 
+var InfoDB datastore.Batching
+
+func init() {
+	err := DataStores()
+	if err != nil {
+		return
+	}
+}
+
 func setupLevelDs(path string, readonly bool) (datastore.Batching, error) {
 	if _, err := os.ReadDir(path); err != nil {
 		if os.IsNotExist(err) {
@@ -60,8 +69,8 @@ func DataStores() error {
 	}
 
 	InfoDB = ldb
-	log.Infof("InfoDB: %+v", InfoDB)
 
+	log.Infof("InfoDB: %+v", InfoDB)
 	return nil
 }
 

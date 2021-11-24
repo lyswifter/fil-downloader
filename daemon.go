@@ -22,11 +22,6 @@ var daemonCmd = cli.Command{
 
 		// RepoDir
 
-		err := DataStores()
-		if err != nil {
-			return err
-		}
-
 		ticker := time.NewTicker(30 * time.Second)
 		ctx := context.Background()
 		sigChan := make(chan os.Signal, 2)

@@ -18,6 +18,7 @@ func main() {
 		initCmd,
 		daemonCmd,
 		downloadmd,
+		uploadCmd,
 	}
 
 	app := &cli.App{
