@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
+	"path"
 	"strings"
 	"time"
 
@@ -81,22 +83,36 @@ func (r *Reader) Read(p []byte) (n int, err error) {
 	return
 }
 
-func download(url string, filename string) error {
-	log.Infof("Start download: %s", url)
+func download(urlstr string, filename string, maddr string, snum string) error {
+	log.Infof("Start download: %s", urlstr)
 
 	ctx := context.Background()
 
-	isalready, err := QueryStatus(ctx, url)
+	parsedPath, err := url.Parse(filename)
 	if err != nil {
 		return err
 	}
 
-	if isalready {
-		log.Warnf("File %s is already downloaded", url)
+	fn := path.Base(parsedPath.Path)
+
+	keyName := ""
+	if fn == "sealed" {
+		keyName = fmt.Sprintf("/sealed/s-t0%s-%s", maddr, snum)
+	} else {
+		keyName = fmt.Sprintf("/cache/s-t0%s-%s/%s", maddr, snum, fn)
+	}
+
+	state, _, err := QueryStatus(ctx, keyName)
+	if err != nil {
+		return err
+	}
+
+	if state == "already download" {
+		log.Warnf("File %s is already downloaded", keyName)
 		return AlreadyErr
 	}
 
-	r, err := http.Get(url)
+	r, err := http.Get(urlstr)
 	if err != nil {
 		panic(err)
 	}
@@ -113,18 +129,18 @@ func download(url string, filename string) error {
 		Total:  r.ContentLength,
 	}
 
-	go func(ctx context.Context) {
+	go func(ctx context.Context, keyName string) {
 		ticker := time.NewTicker(30 * time.Second)
 
 		for {
 			select {
 			case <-ticker.C:
 				precent := float64(reader.Current*10000/reader.Total) / 100
-				log.Infof("Download %s %.2f%%", url, precent)
+				log.Infof("Download %s %.2f%%", urlstr, precent)
 
 				if reader.Current == reader.Total {
-					log.Infof("Finished download %s total: %d cur: %d", url, reader.Total, reader.Current)
-					err = MarkAsDownloaded(ctx, url)
+					log.Infof("Finished download %s total: %d cur: %d", urlstr, reader.Total, reader.Current)
+					err = MarkAs(ctx, keyName, "already downloaded")
 					if err != nil {
 						log.Errorf("mark as download err %s", err.Error())
 						return
@@ -135,7 +151,7 @@ func download(url string, filename string) error {
 				return
 			}
 		}
-	}(ctx)
+	}(ctx, keyName)
 
 	_, _ = io.Copy(f, reader)
 

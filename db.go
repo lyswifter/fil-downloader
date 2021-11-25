@@ -74,7 +74,7 @@ func DataStores() error {
 	return nil
 }
 
-func MarkAsDownloaded(ctx context.Context, file string) error {
+func MarkAs(ctx context.Context, file string, status string) error {
 	key := datastore.NewKey(file)
 	ishas, err := InfoDB.Has(ctx, key)
 	if err != nil {
@@ -82,7 +82,7 @@ func MarkAsDownloaded(ctx context.Context, file string) error {
 	}
 
 	if !ishas {
-		err := InfoDB.Put(ctx, key, []byte("already"))
+		err := InfoDB.Put(ctx, key, []byte(status))
 		if err != nil {
 			return err
 		}
@@ -92,25 +92,21 @@ func MarkAsDownloaded(ctx context.Context, file string) error {
 	return nil
 }
 
-func QueryStatus(ctx context.Context, file string) (bool, error) {
+func QueryStatus(ctx context.Context, file string) (string, bool, error) {
 	key := datastore.NewKey(file)
 	ishas, err := InfoDB.Has(ctx, key)
 	if err != nil {
-		return false, err
+		return "", false, err
 	}
 
 	if ishas {
 		ret, err := InfoDB.Get(ctx, key)
 		if err != nil {
-			return false, err
+			return "", false, err
 		}
 
-		if string(ret) == "already" {
-			return true, nil
-		} else {
-			return false, nil
-		}
+		return string(ret), true, nil
 	}
 
-	return false, nil
+	return "", false, nil
 }

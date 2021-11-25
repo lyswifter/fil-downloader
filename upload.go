@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
@@ -36,8 +37,8 @@ var uploadCmd = cli.Command{
 		},
 		&cli.StringFlag{
 			Name:  "config-path",
-			Usage: "Giving cruster config information path: s.json",
-			Value: path.Join(RepoDir, "u.toml"),
+			Usage: "Giving cruster config information path",
+			Value: path.Join(RepoDir, "u.json"),
 		},
 		&cli.StringFlag{
 			Name:  "sector-path",
@@ -80,7 +81,7 @@ var uploadCmd = cli.Command{
 		}
 
 		minerAddr := cctx.String("miner")
-		if uid == "" {
+		if minerAddr == "" {
 			return xerrors.Errorf("miner address must provide")
 		}
 
@@ -107,7 +108,6 @@ var uploadCmd = cli.Command{
 			return err
 		}
 
-		// var sectorinfos []SectorInfo
 		for _, snum := range sectornumbers {
 			// if already uploaded, continue
 
@@ -149,6 +149,16 @@ var uploadCmd = cli.Command{
 
 					filename := path.Join(sectorDir, fn)
 
+					state, _, err := QueryStatus(context.TODO(), keyName)
+					if err != nil {
+						return err
+					}
+
+					if state == "already uploaded" {
+						log.Warnf("File %s is already uploaded", keyName)
+						continue
+					}
+
 					log.Infof("upload start: %s", filename)
 					start := time.Now()
 
@@ -158,6 +168,11 @@ var uploadCmd = cli.Command{
 					}
 
 					log.Infof("upload finished: %s took: %s", filename, time.Since(start).String())
+
+					err = MarkAs(context.TODO(), keyName, "already uploaded")
+					if err != nil {
+						return err
+					}
 				}
 
 				return nil

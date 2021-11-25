@@ -78,7 +78,7 @@ var downloadmd = cli.Command{
 		}
 
 		minerAddr := cctx.String("miner")
-		if uid == "" {
+		if minerAddr == "" {
 			return xerrors.Errorf("miner address must provide")
 		}
 
@@ -151,7 +151,7 @@ var downloadmd = cli.Command{
 					return err
 				}
 
-				err = download(pauxUrl, path.Join(sectorDir, "p_aux"))
+				err = download(pauxUrl, path.Join(sectorDir, "p_aux"), minerAddr, snum)
 				if err != nil {
 					if err != AlreadyErr {
 						return err
@@ -161,7 +161,7 @@ var downloadmd = cli.Command{
 				for _, cachefile := range task.Cache {
 					splitArr := strings.Split(cachefile, "/")
 					length := len(strings.Split(cachefile, "/"))
-					err = download(fmt.Sprintf("%s/%s", downloadHost, cachefile), path.Join(sectorDir, splitArr[length-1]))
+					err = download(fmt.Sprintf("%s/%s", downloadHost, cachefile), path.Join(sectorDir, splitArr[length-1]), minerAddr, snum)
 					if err != nil {
 						if err != AlreadyErr {
 							return err
@@ -169,7 +169,7 @@ var downloadmd = cli.Command{
 					}
 				}
 
-				err = download(sealedUrl, path.Join(sectorDir, "sealed"))
+				err = download(sealedUrl, path.Join(sectorDir, "sealed"), minerAddr, snum)
 				if err != nil {
 					if err != AlreadyErr {
 						return err
