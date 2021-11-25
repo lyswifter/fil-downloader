@@ -143,7 +143,7 @@ func download(urlstr string, filename string, maddr string, snum string) error {
 		return err
 	}
 
-	if state == "already download" {
+	if state == "already downloaded" {
 		log.Warnf("File %s is already downloaded", keyName)
 		return AlreadyErr
 	}
