@@ -45,6 +45,10 @@ var uploadCmd = cli.Command{
 			Usage: "Giving sectors to download information path",
 			Value: path.Join(RepoDir, "sectors.txt"),
 		},
+		&cli.StringFlag{
+			Name:  "target-path",
+			Usage: "Giving the path to store sectors temp",
+		},
 		&cli.Int64Flag{
 			Name:  "max-queue",
 			Usage: "The max queue number",
@@ -77,9 +81,9 @@ var uploadCmd = cli.Command{
 			return xerrors.Errorf("sector infos config file must provide")
 		}
 
-		uid := cctx.String("uid")
-		if uid == "" {
-			return xerrors.Errorf("storage user identity must provide")
+		targetpath := cctx.String("target-path")
+		if targetpath == "" {
+			return xerrors.Errorf("sector temp location path must provide")
 		}
 
 		minerAddr := cctx.String("miner")
@@ -105,11 +109,6 @@ var uploadCmd = cli.Command{
 
 		var wg sync.WaitGroup
 
-		repo, err := homedir.Expand(RepoDir)
-		if err != nil {
-			return err
-		}
-
 		for _, snum := range sectornumbers {
 			// if already uploaded, continue
 
@@ -124,11 +123,7 @@ var uploadCmd = cli.Command{
 					<-semu
 				}()
 
-				sectorDir := path.Join(repo, "sectors", snum)
-				err = mkSectorsDir(sectorDir)
-				if err != nil {
-					return err
-				}
+				sectorDir := path.Join(targetpath, fmt.Sprintf("f0%s", minerAddr), "sectors", snum)
 
 				fs, err := ioutil.ReadDir(sectorDir)
 				if err != nil {

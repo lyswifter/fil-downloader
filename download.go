@@ -42,6 +42,10 @@ var downloadmd = cli.Command{
 			Usage: "Giving sectors to download information path",
 			Value: path.Join(RepoDir, "sectors.txt"),
 		},
+		&cli.StringFlag{
+			Name:  "target-path",
+			Usage: "Giving the path to store sectors temp",
+		},
 		&cli.Int64Flag{
 			Name:  "max-queue",
 			Usage: "The max queue number",
@@ -72,6 +76,11 @@ var downloadmd = cli.Command{
 		sectorpath := cctx.String("sector-path")
 		if sectorpath == "" {
 			return xerrors.Errorf("sector infos config file must provide")
+		}
+
+		targetpath := cctx.String("target-path")
+		if targetpath == "" {
+			return xerrors.Errorf("sector temp location path must provide")
 		}
 
 		uid := cctx.String("uid")
@@ -142,12 +151,7 @@ var downloadmd = cli.Command{
 				pauxUrl := fmt.Sprintf("%s/%s", downloadHost, task.Paux)
 				sealedUrl := fmt.Sprintf("%s/%s", downloadHost, task.Sealed)
 
-				repo, err := homedir.Expand(RepoDir)
-				if err != nil {
-					return err
-				}
-
-				sectorDir := path.Join(repo, "sectors", snum)
+				sectorDir := path.Join(targetpath, fmt.Sprintf("f0%s", minerAddr), "sectors", snum)
 				err = mkSectorsDir(sectorDir)
 				if err != nil {
 					return err
