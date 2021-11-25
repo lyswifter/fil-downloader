@@ -204,7 +204,7 @@ var downloadmd = cli.Command{
 				}
 
 				//
-				log.Info("WILL TIGGER UPLOAD")
+				log.Infof("------  WILL TIGGER UPLOAD FOR: %s ------", snum)
 
 				fs, err := ioutil.ReadDir(sectorDir)
 				if err != nil {
@@ -232,22 +232,16 @@ var downloadmd = cli.Command{
 						return err
 					}
 
-					if state == "already uploaded" {
-						log.Warnf("File %s is already uploaded", keyName)
+					if state == "already uploaded" || state == "already removed" {
+						log.Warnf("File %s is %s", keyName, state)
 						continue
 					}
 
 					log.Infof("upload start: %s", filename)
+
 					start := time.Now()
 
 					err = uploader.Upload(filename, keyName)
-					if err != nil {
-						return err
-					}
-
-					log.Infof("upload finished: %s took: %s", filename, time.Since(start).String())
-
-					err = RemoveContents(sectorDir)
 					if err != nil {
 						return err
 					}
@@ -256,6 +250,24 @@ var downloadmd = cli.Command{
 					if err != nil {
 						return err
 					}
+
+					log.Infof("upload finished: %s took: %s", filename, time.Since(start).String())
+
+					log.Infof("remove start: %s", filename)
+
+					rstart := time.Now()
+
+					err = os.Remove(filename)
+					if err != nil {
+						return err
+					}
+
+					err = MarkAs(context.TODO(), keyName, "already removed")
+					if err != nil {
+						return err
+					}
+
+					log.Infof("remove finished: %s took: %s", filename, time.Since(rstart).String())
 				}
 
 				return nil
