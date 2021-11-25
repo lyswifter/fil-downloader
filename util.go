@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -155,5 +156,21 @@ func download(urlstr string, filename string, maddr string, snum string) error {
 
 	_, _ = io.Copy(f, reader)
 
+	return nil
+}
+
+func RemoveContents(dir string) error {
+	files, err := filepath.Glob(filepath.Join(dir, "*"))
+	if err != nil {
+		return err
+	}
+	for _, file := range files {
+		err = os.RemoveAll(file)
+		if err != nil {
+			return err
+		}
+
+		log.Infof("remove file: %s ok", file)
+	}
 	return nil
 }

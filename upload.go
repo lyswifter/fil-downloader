@@ -169,6 +169,11 @@ var uploadCmd = cli.Command{
 
 					log.Infof("upload finished: %s took: %s", filename, time.Since(start).String())
 
+					err = RemoveContents(sectorDir)
+					if err != nil {
+						return err
+					}
+
 					err = MarkAs(context.TODO(), keyName, "already uploaded")
 					if err != nil {
 						return err
