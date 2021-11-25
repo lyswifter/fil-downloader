@@ -55,6 +55,8 @@ var downloadmd = cli.Command{
 	},
 	Action: func(cctx *cli.Context) error {
 
+		log.Infof("db: %+v", InfoDB)
+
 		maxqueue := cctx.Int64("max-queue")
 		if maxqueue <= 0 {
 			return xerrors.Errorf("max queue must greater than zero")

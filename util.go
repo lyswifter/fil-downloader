@@ -18,6 +18,41 @@ import (
 
 var AlreadyErr = xerrors.New("Already Downloaded")
 
+func MkDir(path string) error {
+	if _, err := os.ReadDir(path); err != nil {
+		if os.IsNotExist(err) {
+			err = os.MkdirAll(path, 0777)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func Exists(path string) bool {
+	_, err := os.Stat(path)
+	if err != nil {
+		return os.IsExist(err)
+	}
+
+	return true
+}
+
+func IsDir(path string) bool {
+	s, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+
+	return s.IsDir()
+}
+
+func IsFile(path string) bool {
+	return !IsDir(path)
+}
+
 func readline(path string) []string {
 	f, err := os.Open(path)
 	if err != nil {

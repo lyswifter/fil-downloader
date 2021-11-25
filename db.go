@@ -13,13 +13,6 @@ import (
 
 var InfoDB datastore.Batching
 
-func init() {
-	err := DataStores()
-	if err != nil {
-		return
-	}
-}
-
 func setupLevelDs(path string, readonly bool) (datastore.Batching, error) {
 	if _, err := os.ReadDir(path); err != nil {
 		if os.IsNotExist(err) {
