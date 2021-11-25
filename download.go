@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/mitchellh/go-homedir"
+	"github.com/qiniupd/qiniu-go-sdk/syncdata/operation"
 	"github.com/urfave/cli"
 	"golang.org/x/xerrors"
 )
@@ -19,6 +21,8 @@ import (
 var random = rand.New(rand.NewSource(time.Now().UnixNano() | int64(os.Getpid())))
 var MAXCHECKING = 8
 var sem chan struct{}
+
+var uploader operation.Uploader
 
 var downloadmd = cli.Command{
 	Name:        "download",
@@ -33,9 +37,14 @@ var downloadmd = cli.Command{
 			Usage: "Specify miner address",
 		},
 		&cli.StringFlag{
-			Name:  "config-path",
-			Usage: "Giving cruster config information path: s.json",
+			Name:  "download-cfg-path",
+			Usage: "Giving cruster download config information path: s.json",
 			Value: path.Join(RepoDir, "s.json"),
+		},
+		&cli.StringFlag{
+			Name:  "upload-cfg-path",
+			Usage: "Giving cruster upload config information path: u.json",
+			Value: path.Join(RepoDir, "u.json"),
 		},
 		&cli.StringFlag{
 			Name:  "sector-path",
@@ -68,8 +77,13 @@ var downloadmd = cli.Command{
 
 		sem = make(chan struct{}, maxqueue)
 
-		cfgpath := cctx.String("config-path")
-		if cfgpath == "" {
+		downloadCfgpath := cctx.String("download-cfg-path")
+		if downloadCfgpath == "" {
+			return xerrors.Errorf("ruster config file must provide")
+		}
+
+		upCfgpath := cctx.String("upload-cfg-path")
+		if upCfgpath == "" {
 			return xerrors.Errorf("ruster config file must provide")
 		}
 
@@ -93,10 +107,10 @@ var downloadmd = cli.Command{
 			return xerrors.Errorf("miner address must provide")
 		}
 
-		cfgFilepath, _ := homedir.Expand(cfgpath)
+		dcfgFilepath, _ := homedir.Expand(downloadCfgpath)
 		sFilePath, _ := homedir.Expand(sectorpath)
 
-		file, err := os.Open(cfgFilepath)
+		file, err := os.Open(dcfgFilepath)
 		if err != nil {
 			return err
 		}
@@ -116,6 +130,14 @@ var downloadmd = cli.Command{
 
 		log.Infof("Bucket info: %+v", bucketinfo)
 
+		upcfgFilepath, _ := homedir.Expand(upCfgpath)
+		x, err := operation.Load(upcfgFilepath)
+		if err != nil {
+			return err
+		}
+
+		uploader = *operation.NewUploader(x)
+
 		sectornumbers := readline(sFilePath)
 		if len(sectornumbers) == 0 {
 			return xerrors.New("sector numbers must not be empty")
@@ -127,7 +149,6 @@ var downloadmd = cli.Command{
 
 		var wg sync.WaitGroup
 
-		// var sectorinfos []SectorInfo
 		for _, snum := range sectornumbers {
 			// if already download, continue
 
@@ -178,6 +199,61 @@ var downloadmd = cli.Command{
 				err = download(sealedUrl, path.Join(sectorDir, "sealed"), minerAddr, snum)
 				if err != nil {
 					if err != AlreadyErr {
+						return err
+					}
+				}
+
+				//
+				log.Info("WILL TIGGER UPLOAD")
+
+				fs, err := ioutil.ReadDir(sectorDir)
+				if err != nil {
+					return err
+				}
+
+				for _, f := range fs {
+					fn := f.Name()
+
+					keyName := ""
+					if fn == "sealed" {
+						keyName = fmt.Sprintf("/sealed/s-t0%s-%s", minerAddr, snum)
+					} else {
+						keyName = fmt.Sprintf("/cache/s-t0%s-%s/%s", minerAddr, snum, fn)
+					}
+
+					if keyName == "" {
+						return xerrors.New("key name must not be empty")
+					}
+
+					filename := path.Join(sectorDir, fn)
+
+					state, _, err := QueryStatus(context.TODO(), keyName)
+					if err != nil {
+						return err
+					}
+
+					if state == "already uploaded" {
+						log.Warnf("File %s is already uploaded", keyName)
+						continue
+					}
+
+					log.Infof("upload start: %s", filename)
+					start := time.Now()
+
+					err = uploader.Upload(filename, keyName)
+					if err != nil {
+						return err
+					}
+
+					log.Infof("upload finished: %s took: %s", filename, time.Since(start).String())
+
+					err = RemoveContents(sectorDir)
+					if err != nil {
+						return err
+					}
+
+					err = MarkAs(context.TODO(), keyName, "already uploaded")
+					if err != nil {
 						return err
 					}
 				}

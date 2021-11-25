@@ -1,188 +1,190 @@
 package main
 
-import (
-	"context"
-	"fmt"
-	"io/ioutil"
-	"math/rand"
-	"os"
-	"path"
-	"sync"
-	"time"
+// import (
+// 	"context"
+// 	"fmt"
+// 	"io/ioutil"
+// 	"math/rand"
+// 	"os"
+// 	"path"
+// 	"sync"
+// 	"time"
 
-	"github.com/mitchellh/go-homedir"
-	"github.com/urfave/cli"
-	"golang.org/x/xerrors"
+// 	"github.com/mitchellh/go-homedir"
+// 	"github.com/urfave/cli"
+// 	"golang.org/x/xerrors"
 
-	"github.com/qiniupd/qiniu-go-sdk/syncdata/operation"
-)
+// 	"github.com/qiniupd/qiniu-go-sdk/syncdata/operation"
+// )
 
-var randomn = rand.New(rand.NewSource(time.Now().UnixNano() | int64(os.Getpid())))
-var MAXQUEST = 8
-var semu chan struct{}
+// var randomn = rand.New(rand.NewSource(time.Now().UnixNano() | int64(os.Getpid())))
+// var MAXQUEST = 8
+// var semu chan struct{}
 
-var uploader operation.Uploader
+// var uploader operation.Uploader
 
-var uploadCmd = cli.Command{
-	Name:        "upload",
-	Description: "Upload to cruster manually",
-	Flags: []cli.Flag{
-		&cli.StringFlag{
-			Name:  "uid",
-			Usage: "Specify user identity",
-		},
-		&cli.StringFlag{
-			Name:  "miner",
-			Usage: "Specify miner address",
-		},
-		&cli.StringFlag{
-			Name:  "config-path",
-			Usage: "Giving cruster config information path",
-			Value: path.Join(RepoDir, "u.json"),
-		},
-		&cli.StringFlag{
-			Name:  "sector-path",
-			Usage: "Giving sectors to download information path",
-			Value: path.Join(RepoDir, "sectors.txt"),
-		},
-		&cli.StringFlag{
-			Name:  "target-path",
-			Usage: "Giving the path to store sectors temp",
-		},
-		&cli.Int64Flag{
-			Name:  "max-queue",
-			Usage: "The max queue number",
-			Value: 1,
-		},
-		&cli.StringFlag{
-			Name:  "sector-size",
-			Usage: "sector size info, like: 32GiB, 64GiB",
-			Value: "32GiB",
-		},
-	},
-	Action: func(cctx *cli.Context) error {
+// var uploadCmd = cli.Command{
+// 	Name:        "upload",
+// 	Description: "Upload to cruster manually",
+// 	Flags: []cli.Flag{
+// 		&cli.StringFlag{
+// 			Name:  "uid",
+// 			Usage: "Specify user identity",
+// 		},
+// 		&cli.StringFlag{
+// 			Name:  "miner",
+// 			Usage: "Specify miner address",
+// 		},
+// 		&cli.StringFlag{
+// 			Name:  "config-path",
+// 			Usage: "Giving cruster config information path",
+// 			Value: path.Join(RepoDir, "u.json"),
+// 		},
+// 		&cli.StringFlag{
+// 			Name:  "sector-path",
+// 			Usage: "Giving sectors to download information path",
+// 			Value: path.Join(RepoDir, "sectors.txt"),
+// 		},
+// 		&cli.StringFlag{
+// 			Name:  "target-path",
+// 			Usage: "Giving the path to store sectors temp",
+// 		},
+// 		&cli.Int64Flag{
+// 			Name:  "max-queue",
+// 			Usage: "The max queue number",
+// 			Value: 1,
+// 		},
+// 		&cli.StringFlag{
+// 			Name:  "sector-size",
+// 			Usage: "sector size info, like: 32GiB, 64GiB",
+// 			Value: "32GiB",
+// 		},
+// 	},
+// 	Action: func(cctx *cli.Context) error {
 
-		log.Infof("db: %+v", InfoDB)
+// 		_ = DataStores()
 
-		maxqueue := cctx.Int64("max-queue")
-		if maxqueue <= 0 {
-			return xerrors.Errorf("max queue must greater than zero")
-		}
+// 		log.Infof("db: %+v", InfoDB)
 
-		semu = make(chan struct{}, maxqueue)
+// 		maxqueue := cctx.Int64("max-queue")
+// 		if maxqueue <= 0 {
+// 			return xerrors.Errorf("max queue must greater than zero")
+// 		}
 
-		cfgpath := cctx.String("config-path")
-		if cfgpath == "" {
-			return xerrors.Errorf("ruster config file must provide")
-		}
+// 		semu = make(chan struct{}, maxqueue)
 
-		sectorpath := cctx.String("sector-path")
-		if sectorpath == "" {
-			return xerrors.Errorf("sector infos config file must provide")
-		}
+// 		cfgpath := cctx.String("config-path")
+// 		if cfgpath == "" {
+// 			return xerrors.Errorf("ruster config file must provide")
+// 		}
 
-		targetpath := cctx.String("target-path")
-		if targetpath == "" {
-			return xerrors.Errorf("sector temp location path must provide")
-		}
+// 		sectorpath := cctx.String("sector-path")
+// 		if sectorpath == "" {
+// 			return xerrors.Errorf("sector infos config file must provide")
+// 		}
 
-		minerAddr := cctx.String("miner")
-		if minerAddr == "" {
-			return xerrors.Errorf("miner address must provide")
-		}
+// 		targetpath := cctx.String("target-path")
+// 		if targetpath == "" {
+// 			return xerrors.Errorf("sector temp location path must provide")
+// 		}
 
-		cfgFilepath, _ := homedir.Expand(cfgpath)
-		x, err := operation.Load(cfgFilepath)
-		if err != nil {
-			return err
-		}
+// 		minerAddr := cctx.String("miner")
+// 		if minerAddr == "" {
+// 			return xerrors.Errorf("miner address must provide")
+// 		}
 
-		uploader = *operation.NewUploader(x)
+// 		cfgFilepath, _ := homedir.Expand(cfgpath)
+// 		x, err := operation.Load(cfgFilepath)
+// 		if err != nil {
+// 			return err
+// 		}
 
-		sFilePath, _ := homedir.Expand(sectorpath)
-		sectornumbers := readline(sFilePath)
-		if len(sectornumbers) == 0 {
-			return xerrors.New("sector numbers must not be empty")
-		}
+// 		uploader = *operation.NewUploader(x)
 
-		log.Infof("Need to download sectors: %d %v", len(sectornumbers), sectornumbers)
+// 		sFilePath, _ := homedir.Expand(sectorpath)
+// 		sectornumbers := readline(sFilePath)
+// 		if len(sectornumbers) == 0 {
+// 			return xerrors.New("sector numbers must not be empty")
+// 		}
 
-		var wg sync.WaitGroup
+// 		log.Infof("Need to download sectors: %d %v", len(sectornumbers), sectornumbers)
 
-		for _, snum := range sectornumbers {
-			// if already uploaded, continue
+// 		var wg sync.WaitGroup
 
-			semu <- struct{}{}
+// 		for _, snum := range sectornumbers {
+// 			// if already uploaded, continue
 
-			wg.Add(1)
+// 			semu <- struct{}{}
 
-			go func(snum string) error {
+// 			wg.Add(1)
 
-				defer wg.Done()
-				defer func() {
-					<-semu
-				}()
+// 			go func(snum string) error {
 
-				sectorDir := path.Join(targetpath, fmt.Sprintf("f0%s", minerAddr), "sectors", snum)
+// 				defer wg.Done()
+// 				defer func() {
+// 					<-semu
+// 				}()
 
-				fs, err := ioutil.ReadDir(sectorDir)
-				if err != nil {
-					return err
-				}
+// 				sectorDir := path.Join(targetpath, fmt.Sprintf("f0%s", minerAddr), "sectors", snum)
 
-				for _, f := range fs {
-					fn := f.Name()
+// 				fs, err := ioutil.ReadDir(sectorDir)
+// 				if err != nil {
+// 					return err
+// 				}
 
-					keyName := ""
-					if fn == "sealed" {
-						keyName = fmt.Sprintf("/sealed/s-t0%s-%s", minerAddr, snum)
-					} else {
-						keyName = fmt.Sprintf("/cache/s-t0%s-%s/%s", minerAddr, snum, fn)
-					}
+// 				for _, f := range fs {
+// 					fn := f.Name()
 
-					if keyName == "" {
-						return xerrors.New("key name must not be empty")
-					}
+// 					keyName := ""
+// 					if fn == "sealed" {
+// 						keyName = fmt.Sprintf("/sealed/s-t0%s-%s", minerAddr, snum)
+// 					} else {
+// 						keyName = fmt.Sprintf("/cache/s-t0%s-%s/%s", minerAddr, snum, fn)
+// 					}
 
-					filename := path.Join(sectorDir, fn)
+// 					if keyName == "" {
+// 						return xerrors.New("key name must not be empty")
+// 					}
 
-					state, _, err := QueryStatus(context.TODO(), keyName)
-					if err != nil {
-						return err
-					}
+// 					filename := path.Join(sectorDir, fn)
 
-					if state == "already uploaded" {
-						log.Warnf("File %s is already uploaded", keyName)
-						continue
-					}
+// 					state, _, err := QueryStatus(context.TODO(), keyName)
+// 					if err != nil {
+// 						return err
+// 					}
 
-					log.Infof("upload start: %s", filename)
-					start := time.Now()
+// 					if state == "already uploaded" {
+// 						log.Warnf("File %s is already uploaded", keyName)
+// 						continue
+// 					}
 
-					err = uploader.Upload(filename, keyName)
-					if err != nil {
-						return err
-					}
+// 					log.Infof("upload start: %s", filename)
+// 					start := time.Now()
 
-					log.Infof("upload finished: %s took: %s", filename, time.Since(start).String())
+// 					err = uploader.Upload(filename, keyName)
+// 					if err != nil {
+// 						return err
+// 					}
 
-					err = RemoveContents(sectorDir)
-					if err != nil {
-						return err
-					}
+// 					log.Infof("upload finished: %s took: %s", filename, time.Since(start).String())
 
-					err = MarkAs(context.TODO(), keyName, "already uploaded")
-					if err != nil {
-						return err
-					}
-				}
+// 					err = RemoveContents(sectorDir)
+// 					if err != nil {
+// 						return err
+// 					}
 
-				return nil
-			}(snum)
-		}
+// 					err = MarkAs(context.TODO(), keyName, "already uploaded")
+// 					if err != nil {
+// 						return err
+// 					}
+// 				}
 
-		wg.Wait()
+// 				return nil
+// 			}(snum)
+// 		}
 
-		return nil
-	},
-}
+// 		wg.Wait()
+
+// 		return nil
+// 	},
+// }
