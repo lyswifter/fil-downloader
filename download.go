@@ -211,6 +211,11 @@ var downloadmd = cli.Command{
 					return err
 				}
 
+				if len(fs) == 0 {
+					log.Warnf("nothing need to upload for: %s", snum)
+					return nil
+				}
+
 				for _, f := range fs {
 					fn := f.Name()
 
