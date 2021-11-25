@@ -31,4 +31,4 @@ require (
 	golang.org/x/sys v0.0.0-20200116001909-b77594299b42 // indirect
 )
 
-replace github.com/qiniupd/qiniu-go-sdk => github.com/lyswifter/qiniu-go-sdk v1.1.1
+replace github.com/qiniupd/qiniu-go-sdk => github.com/lyswifter/qiniu-go-sdk v1.1.2
